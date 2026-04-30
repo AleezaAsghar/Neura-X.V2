@@ -1722,6 +1722,16 @@
         sidebar.classList.toggle('-translate-x-full');
     });
     </script>
+    <script>
+    const links = document.querySelectorAll("nav a");
+
+    links.forEach(link => {
+        link.addEventListener("click", function () {
+            links.forEach(l => l.classList.remove("bg-blue-500", "text-white"));
+            this.classList.add("bg-blue-500", "text-white");
+        });
+    });
+    </script>
 </body>
 
 </html>
