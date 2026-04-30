@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat with Doctors - NeuraX</title>
+    <script src="{{ url_for('static', filename='js/mobile-sidebar.js') }}"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='neurax-theme.css') }}">
     <style>
@@ -194,7 +195,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="ml-72 h-screen flex flex-col">
+    <div class="ml-0 md:ml-72 min-h-screen pt-16 md:pt-0"></div>
         <!-- Header -->
         <div class="hero-gradient text-white py-6 px-8">
             <div class="flex items-center gap-3 mb-2">
@@ -479,6 +480,7 @@
             }
         });
     </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
 </body>
 
 </html>
