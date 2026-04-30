@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Dashboard - NeuraX</title>
+    <script src="{{ url_for('static', filename='js/mobile-sidebar.js') }}"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='neurax-theme.css') }}">
@@ -256,8 +257,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="ml-72 min-h-screen">
-        <!-- Hero Header with Notifications -->
+    <div class="ml-0 md:ml-72 min-h-screen pt-16 md:pt-0">        <!-- Hero Header with Notifications -->
         <div class="neurax-header text-white py-6 mb-8">
             <div class="container mx-auto px-8 flex justify-between items-center">
                 <div>
@@ -303,8 +303,7 @@
             </div>
         </div>
 
-        <div class="container mx-auto px-8 max-w-7xl">
-            <!-- Statistics Cards -->
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">            <!-- Statistics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" id="statsCards">
                 <div class="bg-white rounded-lg shadow-md p-6 card-hover">
                     <div class="flex items-center">
@@ -1865,6 +1864,7 @@
             </div>
         </div>
     </div>
+    <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
 </body>
 
 </html>

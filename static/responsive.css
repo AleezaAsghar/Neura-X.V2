@@ -1,0 +1,156 @@
+/* NeuraX Mobile Responsiveness Patch
+   Place this file at: static/responsive.css
+   Link it after neurax-theme.css in every template.
+*/
+
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img, svg, canvas, video {
+  max-width: 100%;
+}
+
+/* Tables should scroll horizontally instead of breaking the page */
+table {
+  width: 100%;
+}
+
+.responsive-table,
+.table-responsive,
+.nx-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix long AI analysis/report text on mobile */
+#llmAnalysis,
+#extractedText,
+pre,
+code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Modal safety on mobile */
+.nx-modal,
+.modal-content,
+[id$="Modal"] > div {
+  max-width: calc(100vw - 1.5rem) !important;
+}
+
+@media (max-width: 767px) {
+  /* Collapse dashboard sidebars */
+  body > div.fixed.inset-y-0.left-0.w-72,
+  .sidebar-modern {
+    width: 18rem;
+    max-width: 85vw;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease-in-out;
+  }
+
+  body.mobile-sidebar-open > div.fixed.inset-y-0.left-0.w-72,
+  body.mobile-sidebar-open .sidebar-modern {
+    transform: translateX(0);
+  }
+
+  /* Remove desktop left offset on mobile */
+  .ml-72 {
+    margin-left: 0 !important;
+  }
+
+  /* Give content breathing room */
+  .container {
+    width: 100% !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .px-8 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .py-12 {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .text-5xl {
+    font-size: 2rem !important;
+    line-height: 2.35rem !important;
+  }
+
+  .text-4xl {
+    font-size: 1.875rem !important;
+    line-height: 2.25rem !important;
+  }
+
+  .text-3xl {
+    font-size: 1.5rem !important;
+    line-height: 2rem !important;
+  }
+
+  /* Dashboard headers */
+  .neurax-header .container,
+  .hero-gradient .container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  /* Search/dropdown boxes must not exceed viewport */
+  #globalSearch {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #searchResults,
+  #notificationsPanel {
+    left: 0 !important;
+    right: auto !important;
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+  }
+
+  /* Cards and quick action rows */
+  .grid {
+    min-width: 0;
+  }
+
+  .card-hover,
+  .neurax-card,
+  .nx-card {
+    min-width: 0;
+  }
+
+  /* Forms inside modals */
+  .grid.grid-cols-2,
+  .grid.grid-cols-3,
+  .grid.grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Modal spacing */
+  [id$="Modal"] {
+    padding: 0.75rem !important;
+    align-items: flex-start !important;
+    overflow-y: auto !important;
+  }
+
+  [id$="Modal"] > div {
+    padding: 1rem !important;
+    margin-top: 1rem !important;
+    max-height: calc(100vh - 2rem) !important;
+    overflow-y: auto !important;
+  }
+
+  /* Chart height on phones */
+  .chart-container {
+    height: 240px !important;
+  }
+}
