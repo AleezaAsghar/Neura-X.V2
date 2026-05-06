@@ -335,17 +335,15 @@
                     </div>
                 </div>
 
-                <!-- Critical Alerts Card -->
-                <div class="stat-card shadow-xl p-6 glow-cyan">
+                <!-- Critical Alerts Card (now shows anomalies) -->
+                <div id="criticalAlertsCard" class="stat-card shadow-xl p-6 glow-cyan cursor-pointer hover:scale-105 transition-transform">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-slate-500 text-sm font-medium mb-1">Critical Alerts</p>
                             <p id="criticalReports" class="text-4xl font-black text-slate-800">0</p>
-                            <p class="text-rose-500 text-xs mt-1 flex items-center">
+                            <p id="attentionText" class="text-rose-500 text-xs mt-1 flex items-center">
                                 <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                        clip-rule="evenodd"></path>
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                                 </svg>
                                 Needs attention
                             </p>
@@ -353,10 +351,26 @@
                         <div class="w-14 h-14 rounded-2xl icon-gradient-4 flex items-center justify-center shadow-lg">
                             <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
-                                </path>
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                             </svg>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Anomalies Details Panel (expands when card clicked) -->
+                <div id="anomaliesDetails" class="hidden bg-white rounded-xl shadow-lg p-6 mt-4 border-t-4 border-red-500">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-red-700">Abnormal Lab Values</h3>
+                        <button onclick="toggleAnomaliesDetails()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="anomalyList" class="space-y-3 mb-6"></div>
+                    <div id="specialistRecommendations" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 class="font-semibold text-blue-800 mb-2">Recommended Specialists</h4>
+                        <div id="specialistsList" class="space-y-2"></div>
                     </div>
                 </div>
 
@@ -508,9 +522,7 @@
     </div>
 
     <script>
-        // Safe defaults + proper Jinja escaping
-        const patientId = {{ user.user_db_id }};
-        const currentUserId = {{ user.user_id }};
+        const patientId = {{ user.user_db_id or 1 }};
 
         function showProfileModal() {
             document.getElementById('profileModal').classList.remove('hidden');
@@ -571,6 +583,7 @@
             const img = document.getElementById('profilePicture');
             const placeholder = document.getElementById('profilePlaceholder');
             if (picturePath) {
+                // Ensure the path is correct - it should already include 'profiles/' prefix
                 const path = picturePath.startsWith('profiles/') ? picturePath : `profiles/${picturePath}`;
                 img.src = `/static/${path}`;
                 img.classList.remove('hidden');
@@ -591,12 +604,12 @@
                     let total = reportsData.reports.length;
                     let reviewed = reportsData.reports.filter(r => r.status === 'reviewed').length;
                     let critical = reportsData.reports.filter(r => r.status === 'critical').length;
-                    // let latest = reportsData.reports.length > 0 ? new Date(reportsData.reports[0].created_at).toLocaleDateString() : '-';
+                    let latest = reportsData.reports.length > 0 ? new Date(reportsData.reports[0].created_at).toLocaleDateString() : '-';
 
                     document.getElementById('totalReports').textContent = total;
                     document.getElementById('reviewedReports').textContent = reviewed;
                     document.getElementById('criticalReports').textContent = critical;
-                    // document.getElementById('latestReport').textContent = latest;  // element does not exist → commented out
+                    //document.getElementById('latestReport').textContent = latest;
 
                     // Display reports table
                     const tbody = document.getElementById('patientReportsBody');
@@ -609,30 +622,31 @@
                                 'follow-up': 'bg-yellow-100 text-yellow-800'
                             };
                             return `
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${new Date(report.created_at).toLocaleDateString()}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${report.specialist_type || 'N/A'}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${report.doctor_name || 'N/A'}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusColors[report.status] || 'bg-gray-100'}">
-                                        ${report.status || 'new'}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    <a href="/report/${report.id}" class="text-indigo-600 hover:text-indigo-800 font-medium mr-3">View</a>
-                                    <a href="/api/report/${report.id}/export" class="text-green-600 hover:text-green-800 font-medium" title="Download PDF">
-                                        <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>PDF
-                                    </a>
-                                </td>
-                            </tr>
-                        `;
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${new Date(report.created_at).toLocaleDateString()}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${report.specialist_type || 'N/A'}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${report.doctor_name || 'N/A'}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusColors[report.status] || 'bg-gray-100'}">
+                                            ${report.status || 'new'}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <a href="/report/${report.id}" class="text-indigo-600 hover:text-indigo-800 font-medium mr-3">View</a>
+                                        <a href="/api/report/${report.id}/export" class="text-green-600 hover:text-green-800 font-medium" title="Download PDF">
+                                            <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>PDF
+                                        </a>
+                                    </td>
+                                </tr>
+                            `;
                         }).join('');
                     } else {
                         tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No reports found</td></tr>';
                     }
                 }
+
 
                 // Load patient info
                 const patientResponse = await fetch(`/api/patient/${patientId}`);
@@ -648,42 +662,103 @@
                 if (patientData.patient) {
                     const p = patientData.patient;
                     document.getElementById('patientInfo').innerHTML = `
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div>
-                            <p class="text-sm text-gray-600">Name</p>
-                            <p class="font-semibold">${p.name || 'N/A'}</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <div>
+                                <p class="text-sm text-gray-600">Name</p>
+                                <p class="font-semibold">${p.name || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Date of Birth</p>
+                                <p class="font-semibold">${p.date_of_birth || 'Not provided'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Phone</p>
+                                <p class="font-semibold">${p.phone || 'Not provided'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Gender</p>
+                                <p class="font-semibold">${p.gender || 'Not provided'}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Date of Birth</p>
-                            <p class="font-semibold">${p.date_of_birth || 'Not provided'}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Phone</p>
-                            <p class="font-semibold">${p.phone || 'Not provided'}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Gender</p>
-                            <p class="font-semibold">${p.gender || 'Not provided'}</p>
-                        </div>
-                    </div>
-                    ${p.allergies ? `
-                        <div class="mt-6 pt-6 border-t">
-                            <h3 class="font-semibold text-red-700 mb-2">Allergies</h3>
-                            <p class="text-gray-700">${p.allergies}</p>
-                        </div>
-                    ` : ''}
-                    ${p.medications ? `
-                        <div class="mt-4">
-                            <h3 class="font-semibold mb-2">Current Medications</h3>
-                            <p class="text-gray-700">${p.medications}</p>
-                        </div>
-                    ` : ''}
-                `;
+                        ${p.allergies ? `
+                            <div class="mt-6 pt-6 border-t">
+                                <h3 class="font-semibold text-red-700 mb-2">Allergies</h3>
+                                <p class="text-gray-700">${p.allergies}</p>
+                            </div>
+                        ` : ''}
+                        ${p.medications ? `
+                            <div class="mt-4">
+                                <h3 class="font-semibold mb-2">Current Medications</h3>
+                                <p class="text-gray-700">${p.medications}</p>
+                            </div>
+                        ` : ''}
+                    `;
                 }
+
+                    // ────────────────────────────────────────────────
+        // Load anomalies and update Critical Alerts card
+        // ────────────────────────────────────────────────
+                try {
+                    const anomaliesResp = await fetch(`/api/patient/${patientId}/anomalies`, {
+                        credentials: 'include',
+                        cache: 'no-store'
+                    });
+
+                    if (anomaliesResp.ok) {
+                        const anomaliesData = await anomaliesResp.json();
+
+                        // Count only critical anomalies
+                        const criticalCount = (anomaliesData.anomalies || []).filter(
+                            a => a.status === 'critical_high' || a.status === 'critical_low'
+                        ).length;
+
+                        // Update the big number
+                        const countEl = document.getElementById('criticalReports');
+                        if (countEl) {
+                            countEl.textContent = criticalCount;
+                        }
+
+                        // Update description text + styling
+                        const textEl = document.getElementById('attentionText');
+                        if (textEl) {
+                            if (criticalCount > 0) {
+                                textEl.innerHTML = `
+                                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Critical alert${criticalCount !== 1 ? 's' : ''} detected
+                                `;
+                                textEl.classList.remove('text-rose-500');
+                                textEl.classList.add('text-red-700', 'font-semibold', 'animate-pulse');
+                            } else {
+                                textEl.innerHTML = `
+                                    <svg class="w-3 h-3 mr-1 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 9a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    No critical issues
+                                `;
+                                textEl.classList.remove('text-red-700', 'animate-pulse', 'font-semibold');
+                                textEl.classList.add('text-emerald-600');
+                            }
+                        }
+                    } else {
+                        console.warn("[ANOMALY-CARD] Anomalies API returned:", anomaliesResp.status);
+                    }
+                } catch (err) {
+                    console.warn("[ANOMALY-CARD] Could not load anomalies:", err.message);
+                    // Don't break the whole dashboard
+                }    
             } catch (error) {
                 console.error('Error loading patient data:', error);
             }
         }
+
+                // Start loading all dashboard data when the page is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPatientData();
+        });
+
+        loadPatientData();
 
         // ==========================================
         // APPOINTMENT MANAGEMENT FOR PATIENTS
@@ -883,57 +958,47 @@
             loadDoctorsForChat();
         }
 
-        let currentChatDoctorId = null;
-
         function closeChatModal() {
             document.getElementById('chatModal').classList.add('hidden');
         }
 
+        let currentChatDoctorId = null;
+
         async function loadDoctorsForChat() {
             try {
                 const response = await fetch('/api/doctors');
-                const data = await response.json();s
+                const data = await response.json();
 
-                console.log("DOCTORS API RESPONSE:", data);
-
-                const doctors = data.doctors || [];
-                const container = document.getElementById('doctorsList');
-
-                if (!container) {
-                    console.error("doctorsList element not found");
-                    return;
-                }
-
-                if (doctors.length === 0) {
-                    container.innerHTML = '<p class="text-gray-500 text-center py-8">No doctors available</p>';
-                    return;
-                }
-
-                let html = '<div class="space-y-2 mb-4">';
-
-                doctors.forEach(doc => {
-                    const name = doc.name || doc.full_name || "Doctor";
-                    const specialty = doc.specialist_type || "General Practitioner";
-
-                    html += `
-                        <div onclick="selectChatDoctor(${doc.id}, '${name.replace(/'/g, "\\'")}')" 
-                            class="p-3 border rounded cursor-pointer hover:bg-gray-50">
-
-                            <div>
-                                <p class="font-semibold text-gray-800">${name}</p>
-                                <p class="text-sm text-gray-600">${specialty}</p>
+                let html = '';
+                if (data.doctors && data.doctors.length > 0) {
+                    html = '<div class="space-y-2 mb-4">';
+                    data.doctors.forEach(doctor => {
+                        html += `
+                            <div onclick="selectChatDoctor(${doctor.id}, '${doctor.name || 'Doctor'}')" 
+                                 class="p-3 border rounded cursor-pointer hover:bg-gray-50">
+                                <div class="flex items-center">
+                                    ${doctor.profile_picture ?
+                                `<img src="/static/${doctor.profile_picture.startsWith('profiles/') ? doctor.profile_picture : 'profiles/' + doctor.profile_picture}" class="w-10 h-10 rounded-full mr-3" alt="${doctor.name}">` :
+                                `<div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                            <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                            </svg>
+                                        </div>`}
+                                    <div>
+                                        <p class="font-semibold">${doctor.name || 'Doctor'}</p>
+                                        <p class="text-sm text-gray-600">${doctor.specialist_type || 'General Practitioner'}</p>
+                                    </div>
+                                </div>
                             </div>
-
-                        </div>
-                    `;
-                });
-
-                html += '</div>';
-
-                container.innerHTML = html;
-
+                        `;
+                    });
+                    html += '</div>';
+                } else {
+                    html = '<p class="text-gray-500 text-center py-8">No doctors available</p>';
+                }
+                document.getElementById('doctorsList').innerHTML = html;
             } catch (error) {
-                console.error("Doctors load error:", error);
+                console.error('Doctors load error:', error);
             }
         }
 
@@ -980,17 +1045,15 @@
                 const messagesData = await messagesResponse.json();
 
                 let html = '<div class="space-y-3">';
-                const currentUserId = {{ user.full_name | tojson | safe
-            }},
-            };
+                const currentUserId = {{ user.user_id }};
 
-        if (messagesData.messages && messagesData.messages.length > 0) {
-            // Track last message ID for polling
-            lastMessageId = Math.max(...messagesData.messages.map(m => m.id || 0));
+            if (messagesData.messages && messagesData.messages.length > 0) {
+                // Track last message ID for polling
+                lastMessageId = Math.max(...messagesData.messages.map(m => m.id || 0));
 
-            messagesData.messages.forEach(msg => {
-                const isMe = msg.sender_id === currentUserId;
-                html += `
+                messagesData.messages.forEach(msg => {
+                    const isMe = msg.sender_id === currentUserId;
+                    html += `
                             <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
                                 <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}">
                                     <p class="text-sm font-semibold mb-1">${msg.sender_name || (isMe ? 'You' : 'Doctor')}</p>
@@ -999,20 +1062,20 @@
                                 </div>
                             </div>
                         `;
-            });
-        } else {
-            html += '<p class="text-center text-gray-500 py-4">No messages yet. Start the conversation!</p>';
-        }
+                });
+            } else {
+                html += '<p class="text-center text-gray-500 py-4">No messages yet. Start the conversation!</p>';
+            }
 
-        html += '</div>';
-        document.getElementById('chatMessages').innerHTML = html;
-        const chatContainer = document.getElementById('chatMessages');
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+            html += '</div>';
+            document.getElementById('chatMessages').innerHTML = html;
+            const chatContainer = document.getElementById('chatMessages');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        // Start polling for new messages if not already started
-        if (!chatPollingInterval) {
-            startChatPolling(doctorId);
-        }
+            // Start polling for new messages if not already started
+            if (!chatPollingInterval) {
+                startChatPolling(doctorId);
+            }
         } catch (error) {
             console.error('Chat load error:', error);
         }
@@ -1130,7 +1193,7 @@
                                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                                             </svg>
-                                            Analysis:
+                                            Clinical BERT Analysis:
                                         </h4>
                                         <div class="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4 text-sm shadow-sm">
                                             <p class="text-gray-700">${report.clinical_bert_analysis.substring(0, 200)}${report.clinical_bert_analysis.length > 200 ? '...' : ''}</p>
@@ -1195,7 +1258,7 @@
         }
 
         async function initializeChatbot() {
-            addChatbotMessage('Hello! I\'m your AI Health Assistant. To provide you with the best assistance, I need to understand your situation better. Let me ask you a few questions first.', false);
+            addChatbotMessage('Hello! I\'m Neura-x. i am here to provide you with the best assistance, I need to understand your situation better. Let me ask you a few questions first.', false);
 
             // Get context questions from server
             try {
@@ -1437,7 +1500,7 @@
                             d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z">
                         </path>
                     </svg>
-                    AI Health Assistant
+                    AI Health Assistant (Clinical BERT)
                 </h3>
                 <button onclick="closeAIChatbot()"
                     class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition">Close</button>
@@ -1449,7 +1512,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span><strong>Note:</strong> This AI assistant uses understand your medical
+                    <span><strong>Note:</strong> This AI assistant uses works to understand your medical
                         queries.
                         It will ask a few context questions to better assist you.</span>
                 </p>
@@ -1527,7 +1590,7 @@
                     </div>
                     <div>
                         <h3 class="text-xl font-bold text-red-700">Health Alert: Abnormal Lab Values Detected</h3>
-                        <p class="text-gray-600 text-sm">Your recent lab reports show values outside normal ranges</p>
+                        <p id="anomalySummary" class="text-gray-700 text-sm mt-1 font-medium"></p>
                     </div>
                 </div>
                 <button onclick="closeAnomalyAlert()" class="text-gray-400 hover:text-gray-600">
@@ -1541,7 +1604,7 @@
             <div id="anomalyList" class="space-y-3 mb-6"></div>
 
             <div id="specialistRecommendations" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h4 class="font-semibold text-blue-800 mb-2">Recommended Specialists</h4>
+                <h4 class="font-semibold text-blue-800 mb-2">Consult your specialists </h4>
                 <div id="specialistsList" class="space-y-2"></div>
             </div>
 
@@ -1562,148 +1625,234 @@
     </div>
 
     <script>
-        // === FIX START HERE ===
-        const patientId = {{ user.user_db_id | default (0, true) }};
+// === ANOMALY POPUP LOGIC - cleaned & debug version ===
+        // Force conversion + fallback
+        if (typeof patientId === 'string') {
+            patientId = parseInt(patientId.trim(), 10) || 0;
+        }
+        if (!patientId) {
+            const fromBody = document.body.dataset.patientId || '';
+            if (fromBody) {
+                patientId = parseInt(fromBody, 10);
+                console.log("[ANOMALY] patientId taken from data-patient-id attribute");
+            }
+        }
 
-        async function loadPatientData() {
-            if (!patientId) {
-                console.error("Patient ID is missing");
-                document.getElementById('patientReportsBody').innerHTML =
-                    '<tr><td colspan="5" class="py-8 text-center text-red-500">Patient ID not found</td></tr>';
+        console.log("[ANOMALY] Final patientId:", patientId);
+
+        async function checkForAnomalies() {
+            console.log("[ANOMALY] Starting anomaly check");
+
+            // Already dismissed today?
+            if (localStorage.getItem('anomalyDismissedDate') === new Date().toDateString()) {
+                console.log("[ANOMALY] Already dismissed today → skipping");
+                return;
+            }
+
+            if (!patientId || patientId <= 0 || isNaN(patientId)) {
+                console.warn("[ANOMALY] Invalid patientId → cannot check anomalies");
                 return;
             }
 
             try {
-                // 1. Load Reports
-                const reportsResponse = await fetch(`/api/patient/${patientId}/reports`);
-                if (!reportsResponse.ok) throw new Error('Failed to fetch reports');
+                console.log(`[ANOMALY] Fetching /api/patient/${patientId}/anomalies`);
 
-                const reportsData = await reportsResponse.json();
-                const reports = reportsData.reports || [];
+                const response = await fetch(`/api/patient/${patientId}/anomalies`, {
+                    credentials: 'include',     // very important for session-based auth
+                    cache: 'no-store',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
 
-                // Update Statistics Cards
-                document.getElementById('totalReports').textContent = reports.length;
-                document.getElementById('reviewedReports').textContent = reports.filter(r => r.status === 'reviewed').length;
-                document.getElementById('criticalReports').textContent = reports.filter(r => r.status === 'critical').length;
-                document.getElementById('upcomingAppointments').textContent = '0';   // You can expand this later
+                console.log("[ANOMALY] Response status:", response.status);
 
-                // Populate "My Medical Reports" Table
-                const tbody = document.getElementById('patientReportsBody');
-                let tableHTML = '';
+                if (!response.ok) {
+                    let errorBody = '';
+                    try { errorBody = await response.text(); } catch {}
+                    console.error("[ANOMALY] Request failed:", response.status, errorBody || '(no body)');
+                    if (response.status === 401) {
+                        console.error("[ANOMALY] 401 → not logged in or session expired");
+                    }
+                    if (response.status === 403) {
+                        console.error("[ANOMALY] 403 → forbidden (wrong patient id or role?)");
+                    }
+                    return;
+                }
 
-                if (reports.length > 0) {
-                    reports.slice(0, 8).forEach(report => {
-                        const statusClass = report.status === 'critical' ? 'bg-red-100 text-red-800' :
-                            report.status === 'reviewed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+                const data = await response.json();
+                console.log("[ANOMALY] Response data:", data);
 
-                        tableHTML += `
-                            <tr class="hover:bg-gray-50">
-                                <td class="py-4 px-6">${new Date(report.created_at).toLocaleDateString()}</td>
-                                <td class="py-4 px-6">${report.specialist_type || 'General'}</td>
-                                <td class="py-4 px-6">${report.doctor_name || 'N/A'}</td>
-                                <td class="py-4 px-6">
-                                    <span class="px-3 py-1 text-xs font-medium rounded-full ${statusClass}">
-                                        ${report.status || 'new'}
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6">
-                                    <a href="/report/${report.id}" class="text-indigo-600 hover:underline">View Report</a>
-                                </td>
-                            </tr>
-                        `;
-                    });
+                const hasAnomalies = data?.has_anomalies === true;
+                const anomalyCount = data?.anomalies?.length || 0;
+
+                console.log(`[ANOMALY] has_anomalies: ${hasAnomalies}, count: ${anomalyCount}`);
+
+                if (hasAnomalies && anomalyCount > 0) {
+                    console.log("[ANOMALY] Anomalies found → showing popup");
+                    showAnomalyAlert(data);
                 } else {
-                    tableHTML = `<tr><td colspan="5" class="py-12 text-center text-gray-500">No reports found yet.</td></tr>`;
-                }
-                tbody.innerHTML = tableHTML;
-
-                // Populate Report Analysis Section
-                loadReportAnalysis(reports);
-
-                // ====================== NEW: Load My Information ======================
-                const patientResponse = await fetch(`/api/patient/${patientId}`);
-                if (patientResponse.ok) {
-                    const patientData = await patientResponse.json();
-                    const p = patientData.patient || {};
-
-                    const infoHTML = `
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                            <div>
-                                <p class="text-gray-500 text-xs uppercase">Full Name</p>
-                                <p class="font-semibold">${p.name || 'Not provided'}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs uppercase">Date of Birth</p>
-                                <p class="font-semibold">${p.date_of_birth || 'Not provided'}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs uppercase">Gender</p>
-                                <p class="font-semibold">${p.gender || 'Not provided'}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs uppercase">Phone</p>
-                                <p class="font-semibold">${p.phone || 'Not provided'}</p>
-                            </div>
-                            <div class="col-span-2 md:col-span-3">
-                                <p class="text-gray-500 text-xs uppercase">Address</p>
-                                <p class="font-semibold">${p.address || 'Not provided'}</p>
-                            </div>
-                        </div>
-
-                        ${p.allergies ? `
-                            <div class="mt-8 pt-6 border-t border-gray-200">
-                                <p class="font-medium text-red-700 mb-2">Allergies</p>
-                                <p class="bg-red-50 p-4 rounded-2xl text-gray-700">${p.allergies}</p>
-                            </div>` : ''}
-
-                        ${p.medications ? `
-                            <div class="mt-6">
-                                <p class="font-medium text-amber-700 mb-2">Current Medications</p>
-                                <p class="bg-amber-50 p-4 rounded-2xl text-gray-700">${p.medications}</p>
-                            </div>` : ''}
-                    `;
-
-                    document.getElementById('patientInfo').innerHTML = infoHTML;
+                    console.log("[ANOMALY] No anomalies to display");
                 }
 
-            } catch (error) {
-                console.error("Error loading patient data:", error);
-                document.getElementById('patientReportsBody').innerHTML =
-                    `<tr><td colspan="5" class="py-12 text-center text-red-500">Failed to load data. (${error.message})</td></tr>`;
+            } catch (err) {
+                console.error("[ANOMALY] Fetch / processing error:", err);
             }
         }
-        function loadReportAnalysis(reports) {
-            const section = document.getElementById('reportAnalysisSection');
-            if (!reports || reports.length === 0) {
-                section.innerHTML = `<p class="text-gray-500 text-center py-12">No reports available for analysis yet.</p>`;
+
+        function showAnomalyAlert(data) {
+            console.log("[ANOMALY] showAnomalyAlert() executed with data:", data);
+
+            const modal = document.getElementById('anomalyAlertModal');
+            if (!modal) {
+                console.error("[ANOMALY] Modal #anomalyAlertModal not found");
                 return;
             }
 
+            const anomalyList = document.getElementById('anomalyList');
+            const specialistsList = document.getElementById('specialistsList');
+
+            if (!anomalyList || !specialistsList) {
+                console.error("[ANOMALY] Missing anomalyList or specialistsList container");
+                return;
+            }
+
+            // Clear previous content
+            anomalyList.innerHTML = '';
+            specialistsList.innerHTML = '';
+
+            const anomalies = data.anomalies || [];
+            const totalCount = anomalies.length;
+            const criticalCount = anomalies.filter(a => a.status?.startsWith('critical')).length;
+
+            // 1. Add summary paragraph at the top (replaces generic message)
+            const summaryText = criticalCount > 0
+                ? `Found <strong>${totalCount}</strong> abnormal result${totalCount !== 1 ? 's' : ''} (${criticalCount} critical) — urgent review recommended.`
+                : `Found <strong>${totalCount}</strong> abnormal result${totalCount !== 1 ? 's' : ''} — please discuss with your doctor.`;
+
+            // Insert summary right after the title (you can do this via JS or edit HTML)
+            let summaryEl = document.getElementById('anomalySummary');
+            if (!summaryEl) {
+                // If you didn't add id="anomalySummary" yet, create it dynamically
+                const titleDiv = modal.querySelector('h3')?.parentElement;
+                if (titleDiv) {
+                    summaryEl = document.createElement('p');
+                    summaryEl.id = 'anomalySummary';
+                    summaryEl.className = 'text-gray-700 text-sm mt-2 font-medium';
+                    titleDiv.appendChild(summaryEl);
+                }
+            }
+            if (summaryEl) {
+                summaryEl.innerHTML = summaryText;
+                if (criticalCount > 0) summaryEl.classList.add('text-red-700');
+            }
+
+            // 2. Build detailed list of anomalies
             let html = '';
-            reports.slice(0, 3).forEach(report => {
+            anomalies.forEach(a => {
+                const isCritical = a.status?.startsWith('critical') || false;
+                const bgColor = isCritical ? 'bg-red-50 border-red-400' 
+                                        : (a.status === 'high' ? 'bg-orange-50 border-orange-400' 
+                                                                : 'bg-yellow-50 border-yellow-400');
+
+                const severityBadge = isCritical 
+                    ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">CRITICAL ${a.status.includes('high') ? 'HIGH' : 'LOW'}</span>`
+                    : (a.status === 'high' ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800">HIGH</span>`
+                                        : `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">LOW</span>`);
+
                 html += `
-                <div class="border border-gray-200 rounded-2xl p-6 hover:shadow transition">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-semibold">${report.original_filename || 'Report #' + report.id}</h3>
-                            <p class="text-sm text-gray-500 mt-1">${new Date(report.created_at).toLocaleDateString()}</p>
+                    <div class="p-4 rounded-lg border ${bgColor} shadow-sm">
+                        <div class="flex justify-between items-start gap-4">
+                            <div class="flex-1">
+                                <div class="font-semibold text-base">${a.test_name || 'Unknown test'}</div>
+                                <div class="mt-1.5 text-xl font-bold ${isCritical ? 'text-red-700' : 'text-orange-700'}">
+                                    ${a.value ?? '?'} ${a.unit || ''}
+                                </div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    Normal range: <span class="font-medium">${a.normal_min ?? '?'} – ${a.normal_max ?? '?'}</span>
+                                </div>
+                                ${a.report_date ? `<div class="text-xs text-gray-500 mt-1">From report dated ${new Date(a.report_date).toLocaleDateString()}</div>` : ''}
+                            </div>
+                            <div class="flex-shrink-0">
+                                ${severityBadge}
+                            </div>
                         </div>
-                        <a href="/report/${report.id}" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">View Full →</a>
                     </div>
-                    ${report.llm_analysis ? `
-                        <div class="mt-4 bg-blue-50 p-4 rounded-xl text-sm text-gray-700 line-clamp-3">
-                            ${report.llm_analysis.replace(/<[^>]*>/g, '').substring(0, 220)}...
-                        </div>
-                    ` : ''}
-                </div>
-            `;
+                `;
             });
 
-            section.innerHTML = html;
+            anomalyList.innerHTML = html || `
+                <div class="text-center text-gray-600 py-10">
+                    <p>No detailed anomaly information available at this time.</p>
+                    <p class="text-sm mt-2">Please check your latest lab reports manually.</p>
+                </div>
+            `;
+
+            // 3. Specialists / next steps (keep but make secondary)
+            let specHtml = '';
+            const specialists = data.specialists_needed || {};
+
+            if (Object.keys(specialists).length > 0) {
+                specHtml += '<p class="text-sm text-blue-800 mb-3">Based on the abnormalities found, consider consulting:</p>';
+                Object.entries(specialists).forEach(([spec, tests]) => {
+                    specHtml += `
+                        <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-blue-100">
+                            <div>
+                                <div class="font-medium text-blue-900">${spec}</div>
+                                <div class="text-sm text-gray-600">Related to: ${Array.isArray(tests) ? tests.join(', ') : tests}</div>
+                            </div>
+                            <a href="/patient/appointments?specialist=${encodeURIComponent(spec)}" 
+                            class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition">
+                                Book Now
+                            </a>
+                        </div>
+                    `;
+                });
+            } else {
+                specHtml = `
+                    <p class="text-center text-gray-600 py-6">
+                        No specific specialist flagged yet — discuss results with your primary care doctor soon.
+                    </p>
+                `;
+            }
+
+            specialistsList.innerHTML = specHtml;
+
+            // Force show the modal
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+
+            console.log("[ANOMALY] Popup should now be visible with detailed anomalies");
         }
 
-        // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', loadPatientData);
+        function closeAnomalyAlert() {
+            const modal = document.getElementById('anomalyAlertModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }
+        }
+
+        function dismissAnomalyAlert() {
+            localStorage.setItem('anomalyDismissedDate', new Date().toDateString());
+            closeAnomalyAlert();
+        }
+
+        // Run on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("[ANOMALY] DOMContentLoaded fired → checking anomalies");
+            checkForAnomalies();
+        });
+
+        // Extra fallback run (in case timing issues)
+        setTimeout(() => {
+            if (patientId > 0) {
+                console.log("[ANOMALY] Late check fallback");
+                checkForAnomalies();
+            }
+        }, 1800);
     </script>
 </body>
 

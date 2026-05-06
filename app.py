@@ -2264,6 +2264,80 @@ IMPORTANT REMINDERS
         print(f"Chatbot error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+#Anomaly code added here
+
+@app.route('/api/patient/<int:patient_id>/anomalies', methods=['GET'])
+def get_patient_anomalies(patient_id):
+    """Get all lab anomalies for a patient - Supabase PostgreSQL version"""
+    if 'user_role' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    # Security: Patients can only view their own anomalies
+    if session['user_role'] == 'patient' and session.get('user_db_id') != patient_id:
+        return jsonify({'error': 'Unauthorized - You can only view your own anomalies'}), 403
+    
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            
+            # Check if report_anomalies table exists (safe check)
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'report_anomalies'
+                )
+            """)
+            table_exists = cur.fetchone()['exists']
+            
+            if not table_exists:
+                return jsonify({
+                    'anomalies': [],
+                    'has_critical': False,
+                    'has_anomalies': False,
+                    'specialists_needed': {}
+                })
+
+            # Main query - same logic as your old SQLite version
+            cur.execute('''
+                SELECT ra.*, r.original_filename, r.created_at as report_date
+                FROM report_anomalies ra
+                LEFT JOIN reports r ON ra.report_id = r.id
+                WHERE ra.patient_id = %s
+                ORDER BY 
+                    CASE 
+                        WHEN ra.status LIKE 'critical%' THEN 1 
+                        ELSE 2 
+                    END,
+                    ra.created_at DESC
+            ''', (patient_id,))
+            
+            anomalies = [dict(row) for row in cur.fetchall()]
+            
+            # Group specialists for recommendations (same as your old code)
+            specialists = {}
+            for a in anomalies:
+                spec = a.get('recommended_specialist')
+                if spec:
+                    if spec not in specialists:
+                        specialists[spec] = []
+                    if a.get('test_name') not in specialists[spec]:
+                        specialists[spec].append(a.get('test_name'))
+
+            has_critical = any(a.get('status', '').startswith('critical') for a in anomalies)
+            
+            return jsonify({
+                'anomalies': anomalies,
+                'has_anomalies': len(anomalies) > 0,
+                'has_critical': has_critical,
+                'specialists_needed': specialists
+            })
+    
+    except Exception as e:
+        print(f"Error in get_patient_anomalies: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500        
+
 @app.route('/api/reports/<specialist_type>')
 def get_reports(specialist_type):
     """Get reports for a specific specialist"""
